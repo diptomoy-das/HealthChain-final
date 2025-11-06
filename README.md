@@ -4,7 +4,7 @@
 
 **URL**: https://health-chain-final.vercel.app/
 ## Smart Contract
-Contract Address: 0xB73fCA74F239273ABbb6b3d67dF449146cc2dB45
+Contract Address: [0xB73fCA74F239273ABbb6b3d67dF449146cc2dB45](https://sepolia.celoscan.io/address/0xB73fCA74F239273ABbb6b3d67dF449146cc2dB45)
 
 # Healthcare Document Management on Celo Blockchain
 
