@@ -27,7 +27,7 @@ export const NETWORK_CONFIG = {
 
 // Smart Contract Configuration
 // This will now be read from your .env file
-export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '0x1e440904db8bF74e070723FAE5F835e496095646';
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '0xB73fCA74F239273ABbb6b3d67dF449146cc2dB45';
 
 // Contract ABI (Application Binary Interface)
 // Paste your ABI from Remix here

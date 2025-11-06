@@ -86,7 +86,11 @@ export const FacilitySelector = ({ selectedDocuments, onAccessGranted }: Facilit
     setIsGranting(true);
     try {
       const facilities = MOCK_FACILITIES.filter(f => selectedFacilities.includes(f.id));
-      const facilityAddresses = facilities.map(f => f.address);
+      
+      // --- THIS IS THE FIX ---
+      // We must convert the addresses to lowercase to avoid the checksum error.
+      const facilityAddresses = facilities.map(f => f.address.toLowerCase());
+      // --- END OF FIX ---
 
       const txHash = await web3Service.batchGrantAccess(selectedDocuments, facilityAddresses);
 
@@ -109,7 +113,6 @@ export const FacilitySelector = ({ selectedDocuments, onAccessGranted }: Facilit
       setIsGranting(false);
     }
   };
-
   return (
     <Card className="glass-effect border-border/50 shadow-lg">
       <CardHeader>
