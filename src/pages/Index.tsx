@@ -6,7 +6,7 @@ import { FacilitySelector } from '@/components/FacilitySelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck } from 'lucide-react';
+import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -78,6 +78,13 @@ const Index = () => {
         ? prev.filter((id) => id !== documentId)
         : [...prev, documentId]
     );
+  };
+
+  const handleCopyHash = (hash: string) => {
+    navigator.clipboard.writeText(hash);
+    toast.success('Transaction Hash Copied', {
+      description: 'The transaction hash has been copied to your clipboard.',
+    });
   };
 
   // Dynamic background based on active tab
@@ -379,9 +386,19 @@ const Index = () => {
                                 <span className="text-muted-foreground text-xs uppercase tracking-wider font-semibold flex items-center gap-1">
                                   <Hash className="h-3 w-3" /> Tx Hash
                                 </span>
-                                <span className="font-mono text-emerald-400/80 truncate bg-emerald-950/30 px-2 py-1 rounded border border-emerald-500/20">
-                                  {tx.txHash}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-emerald-400/80 truncate bg-emerald-950/30 px-2 py-1 rounded border border-emerald-500/20 flex-1">
+                                    {tx.txHash}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20"
+                                    onClick={() => handleCopyHash(tx.txHash)}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
