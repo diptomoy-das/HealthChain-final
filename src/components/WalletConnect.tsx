@@ -95,18 +95,21 @@ export const WalletConnect = ({ onConnect, onDisconnect }: WalletConnectProps) =
 
   if (!account) {
     return (
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-4 animate-fade-in">
         <Button
           onClick={handleConnect}
           disabled={isConnecting}
-          className={buttonVariants({ variant: 'hero', size: 'lg' })}
+          className="relative group overflow-hidden rounded-full px-8 py-6 transition-all duration-300 hover:shadow-glow"
         >
-          <Wallet className="mr-2 h-5 w-5" />
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          <div className="absolute inset-0 gradient-primary opacity-90 group-hover:opacity-100 transition-opacity" />
+          <div className="relative flex items-center gap-2 text-white font-semibold text-lg">
+            <Wallet className="h-5 w-5" />
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          </div>
         </Button>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
-          <AlertCircle className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-white/5 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+          <AlertCircle className="h-4 w-4 text-primary" />
           <span>MetaMask or compatible wallet required</span>
         </div>
       </div>
@@ -114,19 +117,21 @@ export const WalletConnect = ({ onConnect, onDisconnect }: WalletConnectProps) =
   }
 
   return (
-    <div className="flex items-center gap-3 bg-gradient-card px-4 py-3 rounded-xl border border-primary/10 shadow-md">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-foreground">{formatAddress(account)}</p>
-        <p className="text-xs text-muted-foreground">{balance} CELO</p>
+    <div className="flex items-center gap-3 glass-card px-5 py-3 rounded-full animate-fade-in">
+      <div className="flex flex-col items-end mr-2">
+        <p className="text-sm font-bold text-foreground tracking-wide">{formatAddress(account)}</p>
+        <p className="text-xs text-primary font-medium">{balance} CELO</p>
       </div>
+
+      <div className="h-8 w-[1px] bg-white/10 mx-1" />
 
       <Button
         onClick={handleDisconnect}
         variant="ghost"
-        size="sm"
-        className="text-muted-foreground hover:text-destructive"
+        size="icon"
+        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
       >
-        <LogOut className="h-4 w-4" />
+        <LogOut className="h-5 w-5" />
       </Button>
     </div>
   );

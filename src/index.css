@@ -8,59 +8,70 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
+    /* Deep Navy & Electric Blue Theme */
+    --background: 222 47% 6%;
+    /* Darker, deeper background */
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 14%;
+    --card: 222 47% 10%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 14%;
+    --popover: 222 47% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 195 100% 50%;
+    --primary: 190 100% 50%;
+    /* Electric Cyan */
     --primary-foreground: 222 47% 11%;
-    --primary-glow: 195 100% 50%;
+    --primary-glow: 190 100% 50%;
 
-    --secondary: 217 91% 60%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 260 100% 65%;
+    /* Vibrant Purple */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 217 33% 12%;
+    --muted-foreground: 215 20% 70%;
 
-    --accent: 195 100% 50%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 320 100% 60%;
+    /* Hot Pink for accents */
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 85% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 17%;
-    --ring: 195 100% 50%;
+    --border: 217 33% 15%;
+    --input: 217 33% 15%;
+    --ring: 190 100% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
+    /* More rounded */
 
-    --gradient-primary: linear-gradient(135deg, hsl(195 100% 50%), hsl(217 91% 60%));
-    --gradient-hero: linear-gradient(135deg, hsl(195 100% 50%) 0%, hsl(217 91% 60%) 50%, hsl(240 100% 65%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(222 47% 14%) 0%, hsl(222 47% 16%) 100%);
-    --gradient-subtle: linear-gradient(145deg, hsl(217 33% 17%) 0%, hsl(222 47% 14%) 100%);
-    --gradient-mesh: radial-gradient(at 0% 0%, hsl(195 100% 50% / 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, hsl(217 91% 60% / 0.15) 0px, transparent 50%);
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(190 100% 50%), hsl(260 100% 65%));
+    --gradient-hero: linear-gradient(135deg, hsl(190 100% 50% / 0.2) 0%, hsl(260 100% 65% / 0.2) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(222 47% 10% / 0.8) 0%, hsl(222 47% 12% / 0.8) 100%);
+    --gradient-subtle: linear-gradient(145deg, hsl(217 33% 12%) 0%, hsl(222 47% 10%) 100%);
+    --gradient-mesh:
+      radial-gradient(at 0% 0%, hsl(190 100% 50% / 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(260 100% 65% / 0.1) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, hsl(320 100% 60% / 0.05) 0px, transparent 50%);
 
+    /* Shadows */
     --shadow-sm: 0 2px 4px hsl(0 0% 0% / 0.4);
-    --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.5);
-    --shadow-lg: 0 10px 40px hsl(0 0% 0% / 0.6);
-    --shadow-glow: 0 0 40px hsl(195 100% 50% / 0.5), 0 0 80px hsl(195 100% 50% / 0.2);
-    --shadow-glow-lg: 0 0 60px hsl(195 100% 50% / 0.6), 0 0 120px hsl(195 100% 50% / 0.3);
+    --shadow-md: 0 8px 32px hsl(0 0% 0% / 0.5);
+    --shadow-lg: 0 20px 60px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 20px hsl(190 100% 50% / 0.3), 0 0 40px hsl(190 100% 50% / 0.1);
+    --shadow-glow-lg: 0 0 40px hsl(190 100% 50% / 0.4), 0 0 80px hsl(190 100% 50% / 0.2);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 222 47% 14%;
+    --sidebar-background: 222 47% 10%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 195 100% 50%;
+    --sidebar-primary: 190 100% 50%;
     --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent: 217 33% 12%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 20%;
-    --sidebar-ring: 195 100% 50%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-ring: 190 100% 50%;
   }
 }
 
@@ -74,24 +85,26 @@ All colors MUST be HSL.
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     background-image: var(--gradient-mesh);
     background-attachment: fixed;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-bold tracking-tight;
   }
 }
 
 @layer utilities {
-  .gradient-primary {
-    background: var(--gradient-primary);
+  .glass-panel {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-xl;
   }
 
-  .gradient-hero {
-    background: var(--gradient-hero);
-  }
-
-  .gradient-card {
-    background: var(--gradient-card);
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-lg border border-white/5 shadow-lg hover:border-primary/50 transition-colors duration-300;
   }
 
   .gradient-text {
@@ -99,6 +112,10 @@ All colors MUST be HSL.
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px hsl(190 100% 50% / 0.5);
   }
 
   .shadow-glow {
@@ -113,27 +130,64 @@ All colors MUST be HSL.
     transition: var(--transition-smooth);
   }
 
-  .glass-effect {
-    background: rgba(28, 35, 49, 0.7);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Animations */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  .gradient-border {
-    position: relative;
-    background-clip: padding-box;
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--gradient-primary);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      box-shadow: 0 0 20px hsl(190 100% 50% / 0.2);
+    }
+
+    50% {
+      box-shadow: 0 0 40px hsl(190 100% 50% / 0.4);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s infinite;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
   }
 }
