@@ -47,6 +47,21 @@ const Index = () => {
     setHasEnteredApp(true);
   };
 
+  const handleSwitchWallet = async () => {
+    try {
+      const address = await web3Service.connect(true);
+      setUserAddress(address);
+      setIsConnected(true);
+      // We do NOT reset hasEnteredApp, so the user stays on the current tab (e.g., Verification)
+      toast.success('Wallet Switched', {
+        description: `Connected to ${address.substring(0, 6)}...${address.substring(address.length - 4)}`
+      });
+    } catch (error) {
+      console.warn('Wallet switch cancelled or failed', error);
+      // If user cancels, we stay as we were, or disconnected if the provider state was cleared.
+    }
+  };
+
   const handleDocumentUpload = (documentId: number, ipfsCid: string, fileUrl?: string) => {
     setUploadedDocuments((prev) => [
       ...prev,
@@ -527,100 +542,188 @@ const Index = () => {
             </TabsContent>
 
             <TabsContent value="verification" className="animate-slide-up">
-              <Card className="glass-panel border-blue-500/20 shadow-[0_0_50px_-12px_rgba(59,130,246,0.2)]">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                      <Stethoscope className="h-6 w-6 text-blue-400" />
+              <Card className="glass-panel border-pink-500/20 shadow-[0_0_50px_-12px_rgba(236,72,153,0.3)] overflow-hidden relative">
+                {/* Decorative background elements */}
+                <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+                <CardHeader className="relative z-10 border-b border-pink-500/10 pb-6 bg-gradient-to-r from-pink-950/30 to-transparent">
+                  <div className="flex items-center gap-5">
+                    <div className="relative">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-[1px] shadow-lg shadow-pink-500/20">
+                        <div className="w-full h-full rounded-2xl bg-black/40 backdrop-blur-md flex items-center justify-center">
+                          <Stethoscope className="h-7 w-7 text-pink-200" />
+                        </div>
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 ring-4 ring-black/50 animate-pulse" />
                     </div>
                     <div>
-                      <CardTitle className="text-2xl text-blue-50">Medical Verification Portal</CardTitle>
-                      <CardDescription className="text-blue-200/60">Doctor Access Only</CardDescription>
+                      <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-100 via-pink-400 to-rose-400">
+                        Medical Verification Portal
+                      </CardTitle>
+                      <CardDescription className="text-pink-200/60 font-medium mt-1">
+                        Authorized Personnel Only • Secure Blockchain Verification
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+
+                <CardContent className="relative z-10 p-6 sm:p-8 space-y-8">
                   {!isConnected ? (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-6">
-                      <div className="p-6 bg-blue-500/10 rounded-full animate-pulse-glow">
-                        <Stethoscope className="h-12 w-12 text-blue-400" />
+                    <div className="flex flex-col items-center justify-center py-20 space-y-8 min-h-[400px]">
+                      <div className="relative group">
+                        <div className="absolute inset-0 bg-pink-500/20 blur-2xl rounded-full group-hover:bg-pink-500/30 transition-all duration-500" />
+                        <div className="relative p-8 bg-black/40 border border-pink-500/30 rounded-3xl backdrop-blur-xl shadow-2xl ring-1 ring-white/10 group-hover:scale-105 transition-transform duration-500">
+                          <Shield className="h-16 w-16 text-pink-400 group-hover:text-pink-300 transition-colors" />
+                        </div>
                       </div>
-                      <div className="text-center space-y-2">
-                        <h3 className="text-xl font-bold text-white">Doctor Authentication Required</h3>
-                        <p className="text-muted-foreground max-w-sm">Please connect your authorized medical wallet to view and verify patient documents.</p>
+                      <div className="text-center space-y-3 max-w-md mx-auto">
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Doctor Authentication Required</h3>
+                        <p className="text-pink-200/60 leading-relaxed">
+                          Securely connect your authorized medical wallet to access patient records and perform on-chain verifications.
+                        </p>
                       </div>
-                      <div className="scale-110">
+                      <div className="scale-110 shadow-xl shadow-pink-500/10 rounded-xl overflow-hidden ring-1 ring-white/10">
                         <WalletConnect onConnect={handleWalletConnect} onDisconnect={handleWalletDisconnect} />
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
-                        <div className="flex items-center gap-4">
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                      {/* Status Bar */}
+                      <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-pink-900/40 via-pink-900/20 to-pink-900/10 border border-pink-500/20 p-1.5 rounded-2xl backdrop-blur-md shadow-lg">
+                        <div className="flex items-center gap-4 px-4 py-2 w-full sm:w-auto">
                           <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-sm font-medium text-blue-200">Doctor Mode Active</span>
+                            <span className="relative flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_#22c55e]"></span>
+                            </span>
+                            <span className="text-sm font-semibold tracking-wide text-pink-100 uppercase">Doctor Mode Active</span>
                           </div>
-                          <p className="text-xs font-mono text-blue-300/60 hidden sm:block">VERIFIER: {userAddress.substring(0, 10)}...</p>
+                          <div className="h-4 w-px bg-white/10 mx-2 hidden sm:block" />
+                          <div className="hidden sm:flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
+                            <div className="w-2 h-2 rounded-full bg-pink-400" />
+                            <p className="text-xs font-mono text-pink-200/80">
+                              {userAddress.substring(0, 10)}...{userAddress.substring(userAddress.length - 4)}
+                            </p>
+                          </div>
                         </div>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-xs h-8 border-blue-500/30 text-blue-300 hover:text-white hover:bg-blue-500/20"
-                          onClick={handleWalletDisconnect}
+                          className="w-full sm:w-auto m-1 text-xs font-medium bg-pink-500/10 text-pink-300 hover:text-white hover:bg-pink-600 rounded-xl transition-all duration-300 border border-transparent hover:border-pink-400/30 hover:shadow-lg hover:shadow-pink-500/20"
+                          onClick={handleSwitchWallet}
                         >
                           Switch Wallet
                         </Button>
                       </div>
 
-                      <div className="space-y-4">
-                        <h3 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold ml-1">Pending Documents</h3>
+                      {/* Documents List */}
+                      <div className="space-y-5">
+                        <div className="flex items-center justify-between px-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm uppercase tracking-wider text-pink-400/60 font-bold">Pending Verification Queue</h3>
+                            <div className="h-px w-12 bg-pink-500/20" />
+                          </div>
+                          <span className="bg-pink-950/50 px-3 py-1 rounded-full text-xs font-bold text-pink-400 border border-pink-500/20 shadow-inner">
+                            {uploadedDocuments.length} Records
+                          </span>
+                        </div>
+
                         {uploadedDocuments.length === 0 ? (
-                          <div className="text-center py-12 border border-white/5 border-dashed rounded-xl">
-                            <p className="text-muted-foreground">No documents found in the system registry.</p>
+                          <div className="flex flex-col items-center justify-center py-20 border border-white/5 border-dashed rounded-3xl bg-white/5/50 backdrop-blur-sm">
+                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                              <FileCheck className="h-8 w-8 text-muted-foreground/50" />
+                            </div>
+                            <p className="text-lg font-medium text-muted-foreground">No documents found in registry</p>
+                            <p className="text-sm text-muted-foreground/50 mt-1">New patient uploads will appear here instantly</p>
                           </div>
                         ) : (
-                          uploadedDocuments.map((doc) => (
-                            <div key={doc.id} className="bg-white/5 border border-white/10 p-5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-between group">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold">
-                                  #{doc.id}
-                                </div>
-                                <div>
-                                  <p className="font-medium text-white">Medical Record - {new Date(doc.timestamp).toLocaleDateString()}</p>
-                                  <p className="text-xs text-muted-foreground font-mono mt-1">Owner: {doc.owner?.substring(0, 10)}...</p>
+                          <div className="grid gap-4">
+                            {uploadedDocuments.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className="group relative overflow-hidden bg-gradient-to-br from-white/5 to-white/0 border border-white/10 hover:border-pink-500/30 rounded-2xl p-1 transition-all duration-500 hover:shadow-[0_0_30px_-5px_rgba(236,72,153,0.15)]"
+                              >
+                                {/* Hover Gradient Overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                                <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-xl bg-black/20 group-hover:bg-transparent transition-colors duration-500 gap-4 sm:gap-0">
+                                  <div className="flex items-center gap-5">
+                                    <div className="relative shrink-0">
+                                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center group-hover:border-pink-500/30 transition-colors shadow-lg">
+                                        <span className="text-xl font-bold text-muted-foreground/50 group-hover:text-pink-400 transition-colors">#{doc.id}</span>
+                                      </div>
+                                      {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' && (
+                                        <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg shadow-emerald-500/30 ring-4 ring-black scale-0 group-hover:scale-100 transition-transform duration-300">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        <h4 className="text-lg font-bold text-white group-hover:text-pink-100 transition-colors tracking-tight">
+                                          Medical Record
+                                        </h4>
+                                        <span className="text-[10px] font-mono font-medium text-muted-foreground bg-white/5 px-2 py-1 rounded border border-white/10 group-hover:border-pink-500/20 transition-colors">
+                                          {new Date(doc.timestamp).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span className="flex items-center gap-2 pl-1">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                                          <span className="opacity-70">Owner:</span>
+                                          <span className="font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded">{doc.owner.substring(0, 12)}...</span>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const d = uploadedDocuments.find(d => d.id === doc.id);
+                                        if (d) setViewingDoc(d);
+                                      }}
+                                      className="flex-1 sm:flex-none text-muted-foreground hover:text-white hover:bg-white/5"
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View
+                                    </Button>
+
+                                    {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' ? (
+                                      <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-sm shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)]">
+                                        <Shield className="h-4 w-4 fill-emerald-500/20" />
+                                        <span>Verified</span>
+                                      </div>
+                                    ) : (doc.owner === userAddress ? (
+                                      <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-yellow-500/60 font-medium text-xs">
+                                        <Lock className="h-3 w-3" />
+                                        <span>Self-Verify Restricted</span>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        onClick={() => {
+                                          const d = uploadedDocuments.find(d => d.id === doc.id);
+                                          if (d) handleVerifyRequest(d);
+                                        }}
+                                        className="flex-1 sm:flex-none bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white border-0 shadow-lg shadow-pink-600/20 text-sm font-bold h-10 px-6 rounded-xl hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                                      >
+                                        <span className="relative z-10 flex items-center gap-2">
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          Verify Record
+                                        </span>
+                                        <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
+                                      </Button>
+                                    )
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-
-                              <div className="flex items-center gap-3">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleViewDocument(doc.ipfsCid)}
-                                  className="text-muted-foreground hover:text-white"
-                                >
-                                  <Eye className="h-4 w-4 mr-2" /> View
-                                </Button>
-
-                                {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' ? (
-                                  <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm font-bold flex items-center gap-2">
-                                    <CheckCircle2 className="h-4 w-4" /> Verified
-                                  </div>
-                                ) : doc.owner === userAddress ? (
-                                  <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-500 text-xs font-medium">
-                                    Self-Verification Restricted
-                                  </div>
-                                ) : (
-                                  <Button
-                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                    onClick={() => handleVerifyDocument(doc.id)}
-                                  >
-                                    Verify Now
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          ))
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
