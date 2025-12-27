@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { DOCUMENT_TYPES } from '@/lib/contractConfig';
 
 interface DocumentUploadProps {
-  onUploadComplete?: (documentId: number, ipfsCid: string) => void;
+  onUploadComplete?: (documentId: number, ipfsCid: string, fileUrl?: string) => void;
 }
 
 export const DocumentUpload = ({ onUploadComplete }: DocumentUploadProps) => {
@@ -61,7 +61,10 @@ export const DocumentUpload = ({ onUploadComplete }: DocumentUploadProps) => {
         description: `ID: ${documentId} • Encrypted & Stored on IPFS`,
       });
 
-      onUploadComplete?.(documentId, ipfsCid);
+      // Create a local URL for preview purposes since we don't have a real IPFS node
+      const fileUrl = URL.createObjectURL(file);
+
+      onUploadComplete?.(documentId, ipfsCid, fileUrl);
       setFile(null);
       setDocumentType('');
     } catch (error: any) {

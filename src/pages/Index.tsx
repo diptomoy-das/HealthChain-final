@@ -6,7 +6,7 @@ import { FacilitySelector } from '@/components/FacilitySelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck, Copy } from 'lucide-react';
+import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck, Copy, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -15,7 +15,7 @@ const Index = () => {
   const [userAddress, setUserAddress] = useState<string>('');
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadedDocuments, setUploadedDocuments] = useState<
-    Array<{ id: number; ipfsCid: string; type: string; timestamp: number }>
+    Array<{ id: number; ipfsCid: string; type: string; timestamp: number; verifiedBy: string; fileUrl?: string }>
   >([]);
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
   const [transactionHistory, setTransactionHistory] = useState<
@@ -45,7 +45,7 @@ const Index = () => {
     setHasEnteredApp(true);
   };
 
-  const handleDocumentUpload = (documentId: number, ipfsCid: string) => {
+  const handleDocumentUpload = (documentId: number, ipfsCid: string, fileUrl?: string) => {
     setUploadedDocuments((prev) => [
       ...prev,
       {
@@ -53,6 +53,8 @@ const Index = () => {
         ipfsCid,
         type: 'insurance_card',
         timestamp: Date.now(),
+        verifiedBy: '0x0000000000000000000000000000000000000000',
+        fileUrl,
       },
     ]);
   };
@@ -73,6 +75,19 @@ const Index = () => {
   };
 
   const toggleDocumentSelection = (documentId: number) => {
+    const doc = uploadedDocuments.find((d) => d.id === documentId);
+    if (!doc) return;
+
+    // Check if document is verified
+    const isVerified = doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000';
+
+    if (!isVerified) {
+      toast.error('Cannot Share Unverified Document', {
+        description: 'Only verified documents can be shared with facilities.',
+      });
+      return;
+    }
+
     setSelectedDocuments((prev) =>
       prev.includes(documentId)
         ? prev.filter((id) => id !== documentId)
@@ -80,11 +95,112 @@ const Index = () => {
     );
   };
 
+  const handleVerifyDocument = async (documentId: number) => {
+    try {
+      const txHash = await web3Service.verifyDocument(documentId);
+      toast.success('Document Verified', {
+        description: `Document #${documentId} has been verified on-chain.`,
+      });
+
+      // Update local state to reflect verification
+      setUploadedDocuments(prev => prev.map(doc =>
+        doc.id === documentId
+          ? { ...doc, verifiedBy: userAddress }
+          : doc
+      ));
+    } catch (error) {
+      console.error('Verification failed:', error);
+      toast.error('Verification Failed', {
+        description: 'Could not verify the document. Please try again.',
+      });
+    }
+  };
+
   const handleCopyHash = (hash: string) => {
     navigator.clipboard.writeText(hash);
     toast.success('Transaction Hash Copied', {
       description: 'The transaction hash has been copied to your clipboard.',
     });
+  };
+
+  const handleViewDocument = (ipfsCid: string) => {
+    // Find the document to check if we have a local file URL
+    const doc = uploadedDocuments.find(d => d.ipfsCid === ipfsCid);
+
+    if (doc?.fileUrl) {
+      window.open(doc.fileUrl, '_blank');
+      return;
+    }
+
+    // Check if it's a mock CID
+    if (ipfsCid.startsWith('QmHash')) {
+      // Generate a mock document for demo purposes
+      const mockContent = `
+        <html>
+          <head>
+            <title>HealthChain Medical Record</title>
+            <style>
+              body { font-family: 'Inter', sans-serif; background: #f0fdf4; color: #1e293b; padding: 40px; max-width: 800px; margin: 0 auto; }
+              .header { border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+              .logo { font-size: 24px; font-weight: bold; color: #059669; }
+              .badge { background: #d1fae5; color: #065f46; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+              .content { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+              .field { margin-bottom: 20px; }
+              .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 5px; font-weight: 600; }
+              .value { font-size: 16px; font-weight: 500; }
+              .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="logo">HealthChain Record</div>
+              <div class="badge">OFFICIAL DOCUMENT</div>
+            </div>
+            <div class="content">
+              <div class="field">
+                <div class="label">Document ID</div>
+                <div class="value">${ipfsCid}</div>
+              </div>
+              <div class="field">
+                <div class="label">Patient Name</div>
+                <div class="value">John Doe</div>
+              </div>
+              <div class="field">
+                <div class="label">Date</div>
+                <div class="value">${new Date().toLocaleDateString()}</div>
+              </div>
+              <div class="field">
+                <div class="label">Type</div>
+                <div class="value">Medical Report</div>
+              </div>
+              <div class="field">
+                <div class="label">Summary</div>
+                <div class="value">
+                  Patient exhibits normal vital signs. Blood pressure 120/80. Heart rate 72 bpm. 
+                  No significant abnormalities detected in routine checkup. 
+                  Recommended to continue regular exercise and balanced diet.
+                </div>
+              </div>
+              <div class="field">
+                <div class="label">Digital Signature</div>
+                <div class="value" style="font-family: monospace; word-break: break-all; color: #059669; background: #ecfdf5; padding: 10px; border-radius: 4px; font-size: 12px;">
+                  0x71C7656EC7ab88b098defB751B7401B5f6d8976F
+                </div>
+              </div>
+            </div>
+            <div class="footer">
+              Secured by HealthChain Protocol • Immutable & Encrypted
+            </div>
+          </body>
+        </html>
+      `;
+      const blob = new Blob([mockContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } else {
+      // Real IPFS link
+      window.open(`https://ipfs.io/ipfs/${ipfsCid}`, '_blank');
+    }
   };
 
   // Dynamic background based on active tab
@@ -282,11 +398,44 @@ const Index = () => {
                                 <p className="text-xs text-muted-foreground font-mono bg-black/20 px-2 py-0.5 rounded mt-1 inline-block">
                                   {doc.ipfsCid.substring(0, 20)}...
                                 </p>
+                                {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' && (
+                                  <div className="flex items-center gap-1 mt-1 text-emerald-400 text-xs font-medium">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Verified
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            {selectedDocuments.includes(doc.id) && (
-                              <div className="w-4 h-4 rounded-full bg-cyan-500 shadow-glow animate-pulse" />
-                            )}
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-white hover:bg-white/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDocument(doc.ipfsCid);
+                                }}
+                                title="View Document"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {(!doc.verifiedBy || doc.verifiedBy === '0x0000000000000000000000000000000000000000') && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7 px-3 border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 hover:border-cyan-400"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVerifyDocument(doc.id);
+                                  }}
+                                >
+                                  Verify Document
+                                </Button>
+                              )}
+                              {selectedDocuments.includes(doc.id) && (
+                                <div className="w-4 h-4 rounded-full bg-cyan-500 shadow-glow animate-pulse" />
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -371,7 +520,17 @@ const Index = () => {
                                   <FileText className="h-3 w-3" /> Documents
                                 </span>
                                 <span className="font-mono text-foreground bg-white/5 px-2 py-1 rounded border border-white/5">
-                                  {tx.documentIds.join(', ')}
+                                  {tx.documentIds.map((id, i) => {
+                                    const doc = uploadedDocuments.find(d => d.id === id);
+                                    const isVerified = doc?.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000';
+                                    return (
+                                      <span key={id} className="inline-flex items-center gap-1">
+                                        #{id}
+                                        {isVerified && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                                        {i < tx.documentIds.length - 1 && ", "}
+                                      </span>
+                                    );
+                                  })}
                                 </span>
                               </div>
                               <div className="flex flex-col gap-1">

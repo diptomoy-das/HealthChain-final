@@ -13,6 +13,7 @@ contract HealthDocumentManager {
         uint256 timestamp;
         address owner;
         string encryptionHash;   // Hash of encryption key for verification
+        address verifiedBy;      // Address of the authorized verifier (0x0 if not verified)
         bool isActive;
     }
 
@@ -23,9 +24,11 @@ contract HealthDocumentManager {
     }
 
     // State variables
+    address public contractOwner;
     mapping(uint256 => Document) public documents;
     mapping(uint256 => mapping(address => FacilityAccess)) public documentAccess;
     mapping(address => uint256[]) public userDocuments;
+    mapping(address => bool) public authorizedVerifiers;
     
     uint256 public documentCounter;
     
@@ -57,11 +60,61 @@ contract HealthDocumentManager {
         address[] facilities
     );
 
+    event VerifierAuthorized(address indexed verifier);
+    event VerifierRevoked(address indexed verifier);
+    event DocumentVerified(uint256 indexed documentId, address indexed verifier);
+
     // Modifiers
     modifier onlyDocumentOwner(uint256 documentId) {
         require(documents[documentId].owner == msg.sender, "Not document owner");
         require(documents[documentId].isActive, "Document is not active");
         _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == contractOwner, "Not contract owner");
+        _;
+    }
+
+    modifier onlyVerifier() {
+        require(authorizedVerifiers[msg.sender], "Not an authorized verifier");
+        _;
+    }
+
+    constructor() {
+        contractOwner = msg.sender;
+        // Auto-authorize the deployer for demo purposes
+        authorizedVerifiers[msg.sender] = true;
+    }
+
+    /**
+     * @dev Authorize a new verifier (doctor/hospital)
+     * @param verifier Address of the verifier
+     */
+    function authorizeVerifier(address verifier) external onlyOwner {
+        authorizedVerifiers[verifier] = true;
+        emit VerifierAuthorized(verifier);
+    }
+
+    /**
+     * @dev Revoke a verifier
+     * @param verifier Address of the verifier
+     */
+    function revokeVerifier(address verifier) external onlyOwner {
+        authorizedVerifiers[verifier] = false;
+        emit VerifierRevoked(verifier);
+    }
+
+    /**
+     * @dev Verify a document (Digital Stamp)
+     * @param documentId The ID of the document to verify
+     */
+    function verifyDocument(uint256 documentId) external onlyVerifier {
+        require(documents[documentId].isActive, "Document is not active");
+        require(documents[documentId].verifiedBy == address(0), "Document already verified");
+        
+        documents[documentId].verifiedBy = msg.sender;
+        emit DocumentVerified(documentId, msg.sender);
     }
 
     /**
@@ -87,6 +140,7 @@ contract HealthDocumentManager {
             timestamp: block.timestamp,
             owner: msg.sender,
             encryptionHash: encryptionHash,
+            verifiedBy: address(0),
             isActive: true
         });
         
@@ -216,6 +270,7 @@ contract HealthDocumentManager {
         uint256 timestamp,
         address owner,
         string memory encryptionHash,
+        address verifiedBy,
         bool isActive
     ) {
         Document memory doc = documents[documentId];
@@ -225,6 +280,7 @@ contract HealthDocumentManager {
             doc.timestamp,
             doc.owner,
             doc.encryptionHash,
+            doc.verifiedBy,
             doc.isActive
         );
     }
