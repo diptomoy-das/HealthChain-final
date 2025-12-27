@@ -60,7 +60,7 @@ export const WalletConnect = ({ onConnect, onDisconnect }: WalletConnectProps) =
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const address = await web3Service.connect();
+      const address = await web3Service.connect(true);
       setAccount(address);
       await loadBalance();
       onConnect?.(address);

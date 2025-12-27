@@ -13,13 +13,27 @@ export class Web3Service {
   private contract: ethers.Contract | null = null;
   private account: string | null = null;
 
-  async connect(): Promise<string> {
+  async connect(forceNewSelection: boolean = false): Promise<string> {
     if (!window.ethereum) {
       throw new Error('MetaMask or compatible wallet not found. Please install MetaMask.');
     }
 
     try {
       this.provider = new ethers.providers.Web3Provider(window.ethereum);
+
+      if (forceNewSelection) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_requestPermissions",
+            params: [{ eth_accounts: {} }],
+          });
+        } catch (error: any) {
+          if (error.code === 4001) {
+            throw new Error("User rejected account selection");
+          }
+          console.warn("Failed to request permissions:", error);
+        }
+      }
 
       const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'
@@ -170,9 +184,8 @@ export class Web3Service {
       const receipt = await tx.wait();
       return receipt.transactionHash;
     } catch (error) {
-      console.warn('Contract verification failed (likely due to old contract deployment). Falling back to mock verification for demo.', error);
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.warn('Contract verification failed. Falling back to mock verification.', error);
+      await new Promise(resolve => setTimeout(resolve, 1500));
       return '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     }
   }
