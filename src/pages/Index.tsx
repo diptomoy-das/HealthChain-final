@@ -7,10 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck, Copy, Eye, Stethoscope } from 'lucide-react';
+import { Shield, FileText, Building2, History, Send, ExternalLink, Key, Blocks, Lock, CheckCircle2, Clock, Hash, FileCheck, Copy, Eye, Stethoscope, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ZKProofDialog } from '@/components/ZKProofDialog';
+import { ZKProof, zkService } from '@/lib/zkService';
+
+// ... existing code ...
+
 const Index = () => {
+  // ... existing state ...
+  const [zkDialogOpen, setZkDialogOpen] = useState(false);
+  const [selectedDocForZK, setSelectedDocForZK] = useState<number | null>(null);
+  const [zkProofs, setZkProofs] = useState<ZKProof[]>([]);
+  const [verifyingProof, setVerifyingProof] = useState(false);
+
   const [isConnected, setIsConnected] = useState(false);
   const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const [userAddress, setUserAddress] = useState<string>('');
@@ -146,7 +157,51 @@ const Index = () => {
           ? { ...doc, verifiedBy: userAddress }
           : doc
       ));
-      return true;
+      return false;
+    }
+  };
+
+  const handleZKProofGenerated = (proof: ZKProof) => {
+    setZkProofs(prev => [proof, ...prev]);
+    setZkDialogOpen(false);
+  };
+
+  const handleVerifyZK = async (proof: ZKProof) => {
+    // 1. Check if wallet is connected
+    if (!isConnected) {
+      toast.error('Wallet Not Connected', { description: 'Please connect a doctor wallet to verify.' });
+      return;
+    }
+
+    // 2. Check for self-verification (Doctor vs Patient)
+    if (proof.ownerAddress === userAddress) {
+      toast.error('Verification Restricted', {
+        description: 'You cannot verify your own ZK Proof. Please switch to a different wallet (Doctor).'
+      });
+      return;
+    }
+
+    setVerifyingProof(true);
+    try {
+      const isValid = await zkService.verifyProof(proof);
+      if (isValid) {
+        toast.success("Zero-Knowledge Proof Verified Successfully", {
+          description: `Cryptographically proven: ${proof.claimType.replace(/_/g, ' ').toUpperCase()}`,
+        });
+
+        // Update local state to mark this specific proof as verified
+        setZkProofs(prev => prev.map(p =>
+          p.proofId === proof.proofId
+            ? { ...p, verifiedBy: userAddress }
+            : p
+        ));
+      } else {
+        toast.error("Invalid Proof");
+      }
+    } catch (e) {
+      toast.error("Verification Error");
+    } finally {
+      setVerifyingProof(false);
     }
   };
 
@@ -333,11 +388,15 @@ const Index = () => {
               ))}
             </TabsList>
 
-            <TabsContent value="upload" className="space-y-8 animate-slide-up">
-              <div className="grid lg:grid-cols-2 gap-8">
+            <TabsContent value="upload" className="space-y-8 animate-slide-up p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 bg-black/60 z-10" />
+                <img src="/upload-bg.jpg" alt="Background" className="w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-700 blur-sm" />
+              </div>
+              <div className="relative z-10 grid lg:grid-cols-2 gap-8">
                 <DocumentUpload onUploadComplete={handleDocumentUpload} />
 
-                <Card className="glass-panel border-cyan-500/20 overflow-hidden">
+                <Card className="bg-black/20 backdrop-blur-md border-2 border-black shadow-xl overflow-hidden">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-2xl flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
@@ -388,6 +447,12 @@ const Index = () => {
                                     Verified
                                   </div>
                                 )}
+                                {zkProofs.some(p => p.documentId === doc.id && p.verifiedBy) && (
+                                  <div className="flex items-center gap-1 mt-1 text-cyan-400 text-xs font-medium">
+                                    <ShieldCheck className="h-3 w-3" />
+                                    ZK Verified
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -403,6 +468,20 @@ const Index = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-emerald-400 hover:text-white hover:bg-emerald-500/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDocForZK(doc.id);
+                                  setZkDialogOpen(true);
+                                }}
+                                title="Generate ZK Proof"
+                              >
+                                <ShieldCheck className="h-4 w-4" />
+                              </Button>
                               {/* Verify button removed from here, moved to View Dialog */}
                               {selectedDocuments.includes(doc.id) && (
                                 <div className="w-4 h-4 rounded-full bg-cyan-500 shadow-glow animate-pulse" />
@@ -417,323 +496,437 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="share" className="animate-slide-up">
-              <FacilitySelector
-                selectedDocuments={selectedDocuments}
-                onAccessGranted={handleAccessGranted}
-              />
+            <TabsContent value="share" className="animate-slide-up p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 bg-black/60 z-10" />
+                <img src="/share-bg.jpg" alt="Background" className="w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-700 blur-sm" />
+              </div>
+              <div className="relative z-10">
+                <FacilitySelector
+                  selectedDocuments={selectedDocuments}
+                  onAccessGranted={handleAccessGranted}
+                />
+              </div>
             </TabsContent>
 
-            <TabsContent value="history" className="animate-slide-up">
-              <Card className="glass-panel border-emerald-500/20 shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)]">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <History className="h-6 w-6 text-emerald-400" />
+            <TabsContent value="history" className="animate-slide-up p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 bg-black/40 z-10" />
+                <img src="/history-bg.jpg" alt="Background" className="w-full h-full object-cover transform scale-100 transition-transform duration-700" />
+              </div>
+              <div className="relative z-10">
+                <Card className="bg-black/10 backdrop-blur-sm border-2 border-black shadow-[0_0_50px_-12px_rgba(16,185,129,0.2)]">
+                  <CardHeader className="pb-8 border-b border-emerald-500/10 bg-gradient-to-r from-emerald-950/20 to-transparent">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/10 relative overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                          <div className="absolute inset-0 bg-emerald-500/10 blur-xl" />
+                          <History className="h-7 w-7 text-emerald-300 relative z-10" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-teal-200">Immutable Ledger</CardTitle>
+                          <CardDescription className="text-emerald-200/60 font-medium text-base mt-1">Verified On-Chain Transaction History</CardDescription>
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-emerald-500/30 backdrop-blur-md shadow-lg">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-xs font-bold tracking-wider text-emerald-400">CELO SEPOLIA TESTNET LIVE</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-8 px-6 sm:px-8">
+                    {transactionHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-24 bg-gradient-to-b from-white/5 to-transparent rounded-3xl border-2 border-dashed border-emerald-500/10">
+                        <div className="w-24 h-24 rounded-full bg-emerald-500/5 flex items-center justify-center mb-6 ring-1 ring-emerald-500/20 shadow-[0_0_30px_-10px_rgba(16,185,129,0.2)]">
+                          <History className="h-10 w-10 text-emerald-500/50" />
+                        </div>
+                        <p className="text-xl font-semibold text-emerald-100/80">No transactions recorded</p>
+                        <p className="text-sm text-emerald-200/40 mt-2">Blockchain interactions will appear here</p>
+                      </div>
+                    ) : (
+                      <div className="relative border-l-2 border-emerald-500/20 ml-4 sm:ml-8 space-y-10 py-2">
+                        {transactionHistory.map((tx) => (
+                          <div key={tx.id} className="relative pl-8 sm:pl-12 group">
+                            {/* Timeline Dot & Line Effect */}
+                            <div className="absolute -left-[9px] top-8 w-4 h-4 rounded-full bg-black border-2 border-emerald-500 group-hover:bg-emerald-500 transition-colors duration-500 shadow-[0_0_15px_rgba(16,185,129,0.6)] z-10">
+                              <div className="absolute inset-0 rounded-full bg-emerald-400/50 animate-ping opacity-0 group-hover:opacity-100" />
+                            </div>
+
+                            <div className="group-hover:-translate-y-1 transition-transform duration-300">
+                              <div className="bg-gradient-to-br from-zinc-900/50 to-black/50 border border-emerald-500/20 rounded-3xl p-1 overflow-hidden shadow-xl hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.3)] hover:border-emerald-500/50 transition-all duration-300">
+                                <div className="bg-white/5 rounded-[20px] p-6 sm:p-7 relative overflow-hidden">
+                                  {/* Glossy overlay */}
+                                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+                                  <div className="flex flex-col md:flex-row justify-between gap-6 relative z-10">
+                                    <div className="flex-1 space-y-6">
+                                      <div className="flex items-start justify-between">
+                                        <div className="space-y-1">
+                                          <div className="flex items-center gap-3">
+                                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                              Access Granted
+                                              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                                            </h3>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-md border border-emerald-500/20">Confirmed</span>
+                                          </div>
+                                          <div className="flex items-center gap-2 text-sm text-emerald-200/50 font-mono">
+                                            <Clock className="h-3.5 w-3.5" />
+                                            {new Date(tx.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid sm:grid-cols-2 gap-4">
+                                        <div className="bg-black/10 rounded-xl p-4 border border-white/5 group-hover:border-emerald-500/20 transition-colors">
+                                          <span className="text-xs font-bold text-emerald-500/70 uppercase tracking-widest mb-2 block flex items-center gap-2">
+                                            <FileText className="h-3 w-3" /> Documents
+                                          </span>
+                                          <div className="flex flex-wrap gap-2">
+                                            {tx.documentIds.map((id, i) => {
+                                              const doc = uploadedDocuments.find(d => d.id === id);
+                                              const isVerified = doc?.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000';
+                                              return (
+                                                <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs font-mono group-hover:bg-emerald-500/20 transition-colors">
+                                                  #{id}
+                                                  {isVerified && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-black/10 rounded-xl p-4 border border-white/5 group-hover:border-emerald-500/20 transition-colors">
+                                          <span className="text-xs font-bold text-teal-500/70 uppercase tracking-widest mb-2 block flex items-center gap-2">
+                                            <Building2 className="h-3 w-3" /> Facilities
+                                          </span>
+                                          <div className="flex flex-wrap gap-2">
+                                            {tx.facilityNames.map((name, i) => (
+                                              <span key={i} className="px-2.5 py-1 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-200 text-xs font-medium">
+                                                {name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {(() => {
+                                        const txZkProofs = zkProofs.filter(p => p.verifiedBy && tx.documentIds.includes(p.documentId));
+                                        if (txZkProofs.length === 0) return null;
+                                        return (
+                                          <div className="mt-6 bg-cyan-950/20 rounded-xl p-4 border border-cyan-500/10 hover:border-cyan-500/30 transition-colors">
+                                            <span className="text-xs font-bold text-cyan-500/70 uppercase tracking-widest mb-3 block flex items-center gap-2">
+                                              <ShieldCheck className="h-3 w-3" /> ZK Verified Proofs
+                                            </span>
+                                            <div className="flex flex-col gap-2">
+                                              {txZkProofs.map(proof => (
+                                                <div key={proof.proofId} className="flex items-center justify-between text-xs bg-cyan-500/5 rounded-lg px-3 py-2 border border-cyan-500/10 hover:bg-cyan-500/10 transition-colors">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-cyan-200/70 font-medium">Doc #{proof.documentId}</span>
+                                                    <span className="h-3 w-px bg-cyan-500/20" />
+                                                    <span className="text-cyan-100 font-medium">{proof.claimType.replace(/_/g, ' ').toUpperCase()}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 ml-4">
+                                                    <span className="font-mono text-cyan-500/50 text-[10px]">HASH</span>
+                                                    <code className="bg-black/40 px-2 py-1 rounded text-cyan-300 font-mono text-[10px] border border-cyan-500/10 select-all group-hover:border-cyan-500/30">
+                                                      {proof.proofString.substring(0, 16)}...
+                                                    </code>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-3 min-w-[200px]">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full justify-between group/btn border-emerald-500/20 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-emerald-200 transition-all shadow-lg shadow-emerald-900/20"
+                                        onClick={() => window.open(`https://alfajores.celoscan.io/tx/${tx.txHash}`, '_blank')}
+                                      >
+                                        <span className="flex items-center gap-2">View on Explorer</span>
+                                        <ExternalLink className="h-3 w-3 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                                      </Button>
+
+                                      <div className="w-full bg-black/10 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5">
+                                        <span className="text-[10px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                                          <Hash className="h-3 w-3" /> Transaction Hash
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <code className="text-xs text-emerald-400/90 font-mono truncate flex-1">
+                                            {tx.txHash}
+                                          </code>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-zinc-400 hover:text-white hover:bg-white/10"
+                                            onClick={() => handleCopyHash(tx.txHash)}
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="verification" className="animate-slide-up p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 z-0">
+                <div className="absolute inset-0 bg-black/40 z-10" />
+                <img src="/verification-bg.jpg" alt="Background" className="w-full h-full object-cover transform scale-100 transition-transform duration-700" />
+              </div>
+              <div className="relative z-10">
+                <Card className="bg-black/10 backdrop-blur-sm border-2 border-black shadow-[0_0_50px_-12px_rgba(236,72,153,0.3)] overflow-hidden relative">
+                  {/* Decorative background elements */}
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+                  <CardHeader className="relative z-10 border-b border-pink-500/10 pb-6 bg-gradient-to-r from-pink-950/30 to-transparent">
+                    <div className="flex items-center gap-5">
+                      <div className="relative">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-[1px] shadow-lg shadow-pink-500/20">
+                          <div className="w-full h-full rounded-2xl bg-black/40 backdrop-blur-md flex items-center justify-center">
+                            <Stethoscope className="h-7 w-7 text-pink-200" />
+                          </div>
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 ring-4 ring-black/50 animate-pulse" />
                       </div>
                       <div>
-                        <CardTitle className="text-2xl text-emerald-50">Immutable Ledger</CardTitle>
-                        <CardDescription className="text-emerald-200/60">Verified On-Chain Transaction History</CardDescription>
+                        <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-100 via-pink-400 to-rose-400">
+                          Medical Verification Portal
+                        </CardTitle>
+                        <CardDescription className="text-pink-200/60 font-medium mt-1">
+                          Authorized Personnel Only • Secure Blockchain Verification
+                        </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-500/20">
-                      <Blocks className="h-3 w-3 text-emerald-400" />
-                      <span className="text-xs font-mono text-emerald-400">CELO MAINNET</span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {transactionHistory.length === 0 ? (
-                    <div className="text-center py-20 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                      <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                        <History className="h-10 w-10 text-muted-foreground/50" />
-                      </div>
-                      <p className="text-lg font-medium text-muted-foreground">No transactions yet</p>
-                    </div>
-                  ) : (
-                    <div className="relative border-l-2 border-emerald-500/20 ml-6 space-y-8 py-4">
-                      {transactionHistory.map((tx) => (
-                        <div key={tx.id} className="relative pl-8 group">
-                          {/* Timeline Dot */}
-                          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-emerald-950 border-2 border-emerald-500 group-hover:scale-125 transition-transform duration-300 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                  </CardHeader>
 
-                          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition-all duration-300 shadow-lg">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shadow-glow">
-                                  <FileCheck className="h-6 w-6 text-emerald-400" />
-                                </div>
-                                <div>
-                                  <p className="text-lg font-semibold text-foreground flex items-center gap-2">
-                                    Access Granted
-                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">CONFIRMED</span>
-                                  </p>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Clock className="h-3 w-3" />
-                                    {new Date(tx.timestamp).toLocaleString()}
-                                  </div>
-                                </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500"
-                                onClick={() => window.open(`https://alfajores.celoscan.io/tx/${tx.txHash}`, '_blank')}
-                              >
-                                View on Explorer
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
+                  <CardContent className="relative z-10 p-6 sm:p-8 space-y-8">
+                    {!isConnected ? (
+                      <div className="flex flex-col items-center justify-center py-20 space-y-8 min-h-[400px]">
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-pink-500/20 blur-2xl rounded-full group-hover:bg-pink-500/30 transition-all duration-500" />
+                          <div className="relative p-8 bg-black/40 border border-pink-500/30 rounded-3xl backdrop-blur-xl shadow-2xl ring-1 ring-white/10 group-hover:scale-105 transition-transform duration-500">
+                            <Shield className="h-16 w-16 text-pink-400 group-hover:text-pink-300 transition-colors" />
+                          </div>
+                        </div>
+                        <div className="text-center space-y-3 max-w-md mx-auto">
+                          <h3 className="text-2xl font-bold text-white tracking-tight">Doctor Authentication Required</h3>
+                          <p className="text-pink-200/60 leading-relaxed">
+                            Securely connect your authorized medical wallet to access patient records and perform on-chain verifications.
+                          </p>
+                        </div>
+                        <div className="scale-110 shadow-xl shadow-pink-500/10 rounded-xl overflow-hidden ring-1 ring-white/10">
+                          <WalletConnect onConnect={handleWalletConnect} onDisconnect={handleWalletDisconnect} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {/* Status Bar */}
+                        <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-pink-900/40 via-pink-900/20 to-pink-900/10 border border-pink-500/20 p-1.5 rounded-2xl backdrop-blur-md shadow-lg">
+                          <div className="flex items-center gap-4 px-4 py-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-3">
+                              <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_#22c55e]"></span>
+                              </span>
+                              <span className="text-sm font-semibold tracking-wide text-pink-100 uppercase">Doctor Mode Active</span>
                             </div>
-
-                            <div className="grid md:grid-cols-2 gap-4 text-sm bg-black/20 p-4 rounded-xl border border-white/5">
-                              <div className="flex flex-col gap-1">
-                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-semibold flex items-center gap-1">
-                                  <FileText className="h-3 w-3" /> Documents
-                                </span>
-                                <span className="font-mono text-foreground bg-white/5 px-2 py-1 rounded border border-white/5">
-                                  {tx.documentIds.map((id, i) => {
-                                    const doc = uploadedDocuments.find(d => d.id === id);
-                                    const isVerified = doc?.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000';
-                                    return (
-                                      <span key={id} className="inline-flex items-center gap-1">
-                                        #{id}
-                                        {isVerified && <CheckCircle2 className="h-3 w-3 text-emerald-400" />}
-                                        {i < tx.documentIds.length - 1 && ", "}
-                                      </span>
-                                    );
-                                  })}
-                                </span>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-semibold flex items-center gap-1">
-                                  <Building2 className="h-3 w-3" /> Facilities
-                                </span>
-                                <span className="text-foreground font-medium">
-                                  {tx.facilityNames.join(', ')}
-                                </span>
-                              </div>
-                              <div className="flex flex-col gap-1 md:col-span-2">
-                                <span className="text-muted-foreground text-xs uppercase tracking-wider font-semibold flex items-center gap-1">
-                                  <Hash className="h-3 w-3" /> Tx Hash
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono text-emerald-400/80 truncate bg-emerald-950/30 px-2 py-1 rounded border border-emerald-500/20 flex-1">
-                                    {tx.txHash}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20"
-                                    onClick={() => handleCopyHash(tx.txHash)}
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
+                            <div className="h-4 w-px bg-white/10 mx-2 hidden sm:block" />
+                            <div className="hidden sm:flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
+                              <div className="w-2 h-2 rounded-full bg-pink-400" />
+                              <p className="text-xs font-mono text-pink-200/80">
+                                {userAddress.substring(0, 10)}...{userAddress.substring(userAddress.length - 4)}
+                              </p>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="verification" className="animate-slide-up">
-              <Card className="glass-panel border-pink-500/20 shadow-[0_0_50px_-12px_rgba(236,72,153,0.3)] overflow-hidden relative">
-                {/* Decorative background elements */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
-                <CardHeader className="relative z-10 border-b border-pink-500/10 pb-6 bg-gradient-to-r from-pink-950/30 to-transparent">
-                  <div className="flex items-center gap-5">
-                    <div className="relative">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 p-[1px] shadow-lg shadow-pink-500/20">
-                        <div className="w-full h-full rounded-2xl bg-black/40 backdrop-blur-md flex items-center justify-center">
-                          <Stethoscope className="h-7 w-7 text-pink-200" />
-                        </div>
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 ring-4 ring-black/50 animate-pulse" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-100 via-pink-400 to-rose-400">
-                        Medical Verification Portal
-                      </CardTitle>
-                      <CardDescription className="text-pink-200/60 font-medium mt-1">
-                        Authorized Personnel Only • Secure Blockchain Verification
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="relative z-10 p-6 sm:p-8 space-y-8">
-                  {!isConnected ? (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-8 min-h-[400px]">
-                      <div className="relative group">
-                        <div className="absolute inset-0 bg-pink-500/20 blur-2xl rounded-full group-hover:bg-pink-500/30 transition-all duration-500" />
-                        <div className="relative p-8 bg-black/40 border border-pink-500/30 rounded-3xl backdrop-blur-xl shadow-2xl ring-1 ring-white/10 group-hover:scale-105 transition-transform duration-500">
-                          <Shield className="h-16 w-16 text-pink-400 group-hover:text-pink-300 transition-colors" />
-                        </div>
-                      </div>
-                      <div className="text-center space-y-3 max-w-md mx-auto">
-                        <h3 className="text-2xl font-bold text-white tracking-tight">Doctor Authentication Required</h3>
-                        <p className="text-pink-200/60 leading-relaxed">
-                          Securely connect your authorized medical wallet to access patient records and perform on-chain verifications.
-                        </p>
-                      </div>
-                      <div className="scale-110 shadow-xl shadow-pink-500/10 rounded-xl overflow-hidden ring-1 ring-white/10">
-                        <WalletConnect onConnect={handleWalletConnect} onDisconnect={handleWalletDisconnect} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                      {/* Status Bar */}
-                      <div className="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-pink-900/40 via-pink-900/20 to-pink-900/10 border border-pink-500/20 p-1.5 rounded-2xl backdrop-blur-md shadow-lg">
-                        <div className="flex items-center gap-4 px-4 py-2 w-full sm:w-auto">
-                          <div className="flex items-center gap-3">
-                            <span className="relative flex h-3 w-3">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 shadow-[0_0_10px_#22c55e]"></span>
-                            </span>
-                            <span className="text-sm font-semibold tracking-wide text-pink-100 uppercase">Doctor Mode Active</span>
-                          </div>
-                          <div className="h-4 w-px bg-white/10 mx-2 hidden sm:block" />
-                          <div className="hidden sm:flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
-                            <div className="w-2 h-2 rounded-full bg-pink-400" />
-                            <p className="text-xs font-mono text-pink-200/80">
-                              {userAddress.substring(0, 10)}...{userAddress.substring(userAddress.length - 4)}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full sm:w-auto m-1 text-xs font-medium bg-pink-500/10 text-pink-300 hover:text-white hover:bg-pink-600 rounded-xl transition-all duration-300 border border-transparent hover:border-pink-400/30 hover:shadow-lg hover:shadow-pink-500/20"
-                          onClick={handleSwitchWallet}
-                        >
-                          Switch Wallet
-                        </Button>
-                      </div>
-
-                      {/* Documents List */}
-                      <div className="space-y-5">
-                        <div className="flex items-center justify-between px-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm uppercase tracking-wider text-pink-400/60 font-bold">Pending Verification Queue</h3>
-                            <div className="h-px w-12 bg-pink-500/20" />
-                          </div>
-                          <span className="bg-pink-950/50 px-3 py-1 rounded-full text-xs font-bold text-pink-400 border border-pink-500/20 shadow-inner">
-                            {uploadedDocuments.length} Records
-                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full sm:w-auto m-1 text-xs font-medium bg-pink-500/10 text-pink-300 hover:text-white hover:bg-pink-600 rounded-xl transition-all duration-300 border border-transparent hover:border-pink-400/30 hover:shadow-lg hover:shadow-pink-500/20"
+                            onClick={handleSwitchWallet}
+                          >
+                            Switch Wallet
+                          </Button>
                         </div>
 
-                        {uploadedDocuments.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-20 border border-white/5 border-dashed rounded-3xl bg-white/5/50 backdrop-blur-sm">
-                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                              <FileCheck className="h-8 w-8 text-muted-foreground/50" />
+                        {/* ZK Verification Section */}
+                        {zkProofs.length > 0 && (
+                          <div className="bg-black/20 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-sm uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4" /> Valid ZK Proofs
+                              </h3>
+                              <span className="text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded">
+                                {zkProofs.length} Active Proofs
+                              </span>
                             </div>
-                            <p className="text-lg font-medium text-muted-foreground">No documents found in registry</p>
-                            <p className="text-sm text-muted-foreground/50 mt-1">New patient uploads will appear here instantly</p>
-                          </div>
-                        ) : (
-                          <div className="grid gap-4">
-                            {uploadedDocuments.map((doc) => (
-                              <div
-                                key={doc.id}
-                                className="group relative overflow-hidden bg-gradient-to-br from-white/5 to-white/0 border border-white/10 hover:border-pink-500/30 rounded-2xl p-1 transition-all duration-500 hover:shadow-[0_0_30px_-5px_rgba(236,72,153,0.15)]"
-                              >
-                                {/* Hover Gradient Overlay */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                                <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-xl bg-black/20 group-hover:bg-transparent transition-colors duration-500 gap-4 sm:gap-0">
-                                  <div className="flex items-center gap-5">
-                                    <div className="relative shrink-0">
-                                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center group-hover:border-pink-500/30 transition-colors shadow-lg">
-                                        <span className="text-xl font-bold text-muted-foreground/50 group-hover:text-pink-400 transition-colors">#{doc.id}</span>
-                                      </div>
-                                      {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' && (
-                                        <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg shadow-emerald-500/30 ring-4 ring-black scale-0 group-hover:scale-100 transition-transform duration-300">
-                                          <CheckCircle2 className="h-3 w-3" />
-                                        </div>
-                                      )}
+                            <div className="grid gap-3">
+                              {zkProofs.map(proof => (
+                                <div key={proof.proofId} className="flex items-center justify-between bg-black/40 border border-white/5 p-3 rounded-xl hover:border-emerald-500/30 transition-colors group">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                                      <Lock className="h-4 w-4" />
                                     </div>
-
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center gap-3 flex-wrap">
-                                        <h4 className="text-lg font-bold text-white group-hover:text-pink-100 transition-colors tracking-tight">
-                                          Medical Record
-                                        </h4>
-                                        <span className="text-[10px] font-mono font-medium text-muted-foreground bg-white/5 px-2 py-1 rounded border border-white/10 group-hover:border-pink-500/20 transition-colors">
-                                          {new Date(doc.timestamp).toLocaleDateString()}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <span className="flex items-center gap-2 pl-1">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
-                                          <span className="opacity-70">Owner:</span>
-                                          <span className="font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded">{doc.owner.substring(0, 12)}...</span>
-                                        </span>
-                                      </div>
+                                    <div>
+                                      <p className="text-sm font-semibold text-white">{proof.claimType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                                      <p className="text-[10px] text-muted-foreground font-mono">{proof.proofId}</p>
                                     </div>
                                   </div>
-
-                                  <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                                  {proof.verifiedBy ? (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-xs font-bold shadow-[0_0_10px_-2px_rgba(16,185,129,0.3)]">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      ZK Verified
+                                    </div>
+                                  ) : (
                                     <Button
-                                      variant="ghost"
                                       size="sm"
-                                      onClick={() => {
-                                        const d = uploadedDocuments.find(d => d.id === doc.id);
-                                        if (d) setViewingDoc(d);
-                                      }}
-                                      className="flex-1 sm:flex-none text-muted-foreground hover:text-white hover:bg-white/5"
+                                      variant="outline"
+                                      className="border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400 text-xs h-8"
+                                      onClick={() => handleVerifyZK(proof)}
+                                      disabled={verifyingProof}
                                     >
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      View
+                                      {verifyingProof ? <div className="animate-spin w-3 h-3 border-2 border-current border-t-transparent rounded-full" /> : "Verify Proof"}
                                     </Button>
-
-                                    {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' ? (
-                                      <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-sm shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)]">
-                                        <Shield className="h-4 w-4 fill-emerald-500/20" />
-                                        <span>Verified</span>
-                                      </div>
-                                    ) : (doc.owner === userAddress ? (
-                                      <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-yellow-500/60 font-medium text-xs">
-                                        <Lock className="h-3 w-3" />
-                                        <span>Self-Verify Restricted</span>
-                                      </div>
-                                    ) : (
-                                      <Button
-                                        onClick={() => {
-                                          const d = uploadedDocuments.find(d => d.id === doc.id);
-                                          if (d) handleVerifyRequest(d);
-                                        }}
-                                        className="flex-1 sm:flex-none bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white border-0 shadow-lg shadow-pink-600/20 text-sm font-bold h-10 px-6 rounded-xl hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
-                                      >
-                                        <span className="relative z-10 flex items-center gap-2">
-                                          <CheckCircle2 className="h-4 w-4" />
-                                          Verify Record
-                                        </span>
-                                        <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
-                                      </Button>
-                                    )
-                                    )}
-                                  </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         )}
+
+                        {/* Documents List */}
+                        <div className="space-y-5">
+                          <div className="flex items-center justify-between px-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm uppercase tracking-wider text-white font-bold">Pending Verification Queue</h3>
+                              <div className="h-px w-12 bg-white/20" />
+                            </div>
+                            <span className="bg-pink-950/50 px-3 py-1 rounded-full text-xs font-bold text-pink-400 border border-pink-500/20 shadow-inner">
+                              {uploadedDocuments.length} Records
+                            </span>
+                          </div>
+
+                          {uploadedDocuments.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 border border-white/5 border-dashed rounded-3xl bg-white/5/50 backdrop-blur-sm">
+                              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                <FileCheck className="h-8 w-8 text-muted-foreground/50" />
+                              </div>
+                              <p className="text-lg font-medium text-muted-foreground">No documents found in registry</p>
+                              <p className="text-sm text-muted-foreground/50 mt-1">New patient uploads will appear here instantly</p>
+                            </div>
+                          ) : (
+                            <div className="grid gap-4">
+                              {uploadedDocuments.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="group relative overflow-hidden bg-gradient-to-br from-white/5 to-white/0 border border-white/10 hover:border-pink-500/30 rounded-2xl p-1 transition-all duration-500 hover:shadow-[0_0_30px_-5px_rgba(236,72,153,0.15)]"
+                                >
+                                  {/* Hover Gradient Overlay */}
+                                  <div className="absolute inset-0 bg-gradient-to-r from-pink-600/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+                                  <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-xl bg-black/20 group-hover:bg-transparent transition-colors duration-500 gap-4 sm:gap-0">
+                                    <div className="flex items-center gap-5">
+                                      <div className="relative shrink-0">
+                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center group-hover:border-pink-500/30 transition-colors shadow-lg">
+                                          <span className="text-xl font-bold text-muted-foreground/50 group-hover:text-pink-400 transition-colors">#{doc.id}</span>
+                                        </div>
+                                        {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' && (
+                                          <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg shadow-emerald-500/30 ring-4 ring-black scale-0 group-hover:scale-100 transition-transform duration-300">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                          <h4 className="text-lg font-bold text-white group-hover:text-pink-100 transition-colors tracking-tight">
+                                            Medical Record
+                                          </h4>
+                                          <span className="text-[10px] font-mono font-medium text-muted-foreground bg-white/5 px-2 py-1 rounded border border-white/10 group-hover:border-pink-500/20 transition-colors">
+                                            {new Date(doc.timestamp).toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                          <span className="flex items-center gap-2 pl-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                                            <span className="opacity-70">Owner:</span>
+                                            <span className="font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded">{doc.owner.substring(0, 12)}...</span>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          const d = uploadedDocuments.find(d => d.id === doc.id);
+                                          if (d) setViewingDoc(d);
+                                        }}
+                                        className="flex-1 sm:flex-none text-muted-foreground hover:text-white hover:bg-white/5"
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        View
+                                      </Button>
+
+                                      {doc.verifiedBy && doc.verifiedBy !== '0x0000000000000000000000000000000000000000' ? (
+                                        <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-sm shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)]">
+                                          <Shield className="h-4 w-4 fill-emerald-500/20" />
+                                          <span>Verified</span>
+                                        </div>
+                                      ) : (doc.owner === userAddress ? (
+                                        <div className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-yellow-500/5 border border-yellow-500/10 rounded-xl text-yellow-500/60 font-medium text-xs">
+                                          <Lock className="h-3 w-3" />
+                                          <span>Self-Verify Restricted</span>
+                                        </div>
+                                      ) : (
+                                        <Button
+                                          onClick={() => {
+                                            const d = uploadedDocuments.find(d => d.id === doc.id);
+                                            if (d) handleVerifyRequest(d);
+                                          }}
+                                          className="flex-1 sm:flex-none bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white border-0 shadow-lg shadow-pink-600/20 text-sm font-bold h-10 px-6 rounded-xl hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden"
+                                        >
+                                          <span className="relative z-10 flex items-center gap-2">
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            Verify Record
+                                          </span>
+                                          <div className="absolute inset-0 bg-white/20 translate-y-full hover:translate-y-0 transition-transform duration-300" />
+                                        </Button>
+                                      )
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
-      )}
+      )
+      }
 
       <footer className="glass-panel border-t-0 mt-auto py-12">
         <div className="container mx-auto px-4 text-center">
@@ -838,7 +1031,14 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      <ZKProofDialog
+        open={zkDialogOpen}
+        onOpenChange={setZkDialogOpen}
+        documentId={selectedDocForZK}
+        ownerAddress={uploadedDocuments.find(d => d.id === selectedDocForZK)?.owner}
+        onProofGenerated={handleZKProofGenerated}
+      />
+    </div >
   );
 };
 

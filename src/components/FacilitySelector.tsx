@@ -122,7 +122,7 @@ export const FacilitySelector = ({ selectedDocuments, onAccessGranted }: Facilit
     }
   };
   return (
-    <Card className="glass-panel border-purple-500/20 shadow-[0_0_50px_-12px_rgba(168,85,247,0.2)] overflow-hidden relative">
+    <Card className="bg-black/20 backdrop-blur-md border-2 border-black shadow-[0_0_50px_-12px_rgba(168,85,247,0.2)] overflow-hidden relative">
       {/* Network Background Elements */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.1),transparent_40%)]" />
 

@@ -77,7 +77,7 @@ export const DocumentUpload = ({ onUploadComplete }: DocumentUploadProps) => {
   };
 
   return (
-    <Card className="glass-panel border-cyan-500/20 shadow-[0_0_50px_-12px_rgba(6,182,212,0.2)] overflow-hidden relative group">
+    <Card className="bg-black/20 backdrop-blur-md border-2 border-black shadow-[0_0_50px_-12px_rgba(6,182,212,0.2)] overflow-hidden relative group">
       {/* Secure Vault Background Elements */}
       <div className="absolute inset-0 bg-hex-pattern opacity-5 pointer-events-none" />
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-50" />
